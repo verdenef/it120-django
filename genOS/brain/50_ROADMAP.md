@@ -19,8 +19,8 @@ Do not copy milestone criteria into Progress or Backlog. Progress stores only `c
 | M1 | — | done | Project Foundation & Security Configuration |
 | M2 | — | done | SMS Composition UI & Input Validation |
 | M3 | — | done | Textbee SMS Gateway Service Integration |
-| M4 | — | active | Message History Log & Audit Dashboard |
-| M5 | — | planned | Verification, Documentation & Demonstration Readiness |
+| M4 | — | done | Message History Log & Audit Dashboard |
+| M5 | — | active | Verification, Documentation & Demonstration Readiness |
 
 ---
 
@@ -88,17 +88,17 @@ M1 → M2 → M3 → M4 → M5
 
 ## M4 — Message History Log & Audit Dashboard
 
-- **Status:** active
+- **Status:** done
 - **Objective:** Implement message persistence via Django ORM to record sent messages, delivery status, and timestamps, presenting a clear audit dashboard.
 - **Deliverables:**
-  - `SMSLog` Django model capturing recipient, message snippet, status (`SENT`, `FAILED`), timestamp, and provider response details.
-  - Database migrations applied cleanly.
-  - Recent SMS history table embedded in the UI dashboard.
-  - Visual status badges (green for sent, red for failed).
+  - `SMSLog` Django model capturing recipient, message snippet, status (`SENT`, `FAILED`), timestamp, and provider response details. (Completed)
+  - Database migrations applied cleanly. (Completed)
+  - Recent SMS history table embedded in the UI dashboard. (Completed)
+  - Visual status badges (green for sent, red for failed). (Completed)
 - **Completion criteria:**
-  - Every send attempt creates an `SMSLog` record in SQLite.
-  - History table renders previous attempts with formatted local timestamps and status badges.
-  - History displays empty state gracefully when no messages exist.
+  - Every send attempt creates an `SMSLog` record in SQLite. (Verified — unit & view tests)
+  - History table renders previous attempts with formatted local timestamps and status badges. (Verified — UI rendering tests)
+  - History displays empty state gracefully when no messages exist. (Verified — UI empty state tests)
 - **Dependencies:** M1, M2, M3
 - **Systems:** [[MessageHistory]], [[SMSCompositionUI]]
 
@@ -106,7 +106,7 @@ M1 → M2 → M3 → M4 → M5
 
 ## M5 — Verification, Documentation & Demonstration Readiness
 
-- **Status:** planned
+- **Status:** active
 - **Objective:** Perform end-to-end testing, error scenario verification, complete assignment documentation, and prepare the demonstration video walkthrough script.
 - **Deliverables:**
   - Comprehensive `README.md` containing project overview, setup guide, Textbee configuration steps, and architecture summary.

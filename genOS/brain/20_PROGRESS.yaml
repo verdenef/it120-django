@@ -14,7 +14,7 @@ last_agent: antigravity
 last_ide: antigravity
 
 # ID only — resolve objective/criteria in 50_ROADMAP.md
-current_milestone: M4
+current_milestone: M5
 
 # Active scene or primary file in focus, if any
 current_scene: null
@@ -22,9 +22,9 @@ current_scene: null
 # System file basenames under brain/systems/ (without .md) to load on BOOT
 # Example: [Input, Movement]
 systems_in_scope:
+  - ConfigurationSecurity
   - SMSGateway
   - SMSCompositionUI
-  - ConfigurationSecurity
   - MessageHistory
 
 # Sole in-progress list (do not duplicate into Backlog)
@@ -38,4 +38,4 @@ blocked: []
 
 # Self-contained SHUTDOWN summary: what completed, what remains, what next agent should do
 # null = unset (Empty Brain / no session yet) — do not invent
-session_summary: "Milestone M3 (Textbee SMS Gateway Service Integration) completed, fully verified, and merged into master (commit 4b917a4). Pushed to remote repository https://github.com/verdenef/it120-django.git. Delivered dedicated Textbee REST API service client (sms_app/services/textbee.py) with typed TextbeeResult dataclass, robust exception handling (10s timeouts, connection errors, HTTP 400/401/404/429/500), and integrated gateway dispatch into home view (sms_app/views.py) with Django flash messages. 69/69 tests passing offline. Advanced active milestone to M4 (Message History Log & Audit Dashboard)."
+session_summary: "Milestone M4 (Message History Log & Audit Dashboard) completed, verified with 81 tests passing, merged into master (commit 94dff8a), and pushed to remote repository https://github.com/verdenef/it120-django.git. Delivered SMSLog model with Django admin integration, dispatch persistence on POST in home view, and mobile-responsive audit table with status badges and empty state. Configured non-interactive git credential helper for seamless pushing. Advanced active milestone to M5 (Verification, Documentation & Demonstration Readiness)."
