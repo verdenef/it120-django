@@ -18,8 +18,8 @@ Do not copy milestone criteria into Progress or Backlog. Progress stores only `c
 |----|--------|--------|-------|
 | M1 | — | done | Project Foundation & Security Configuration |
 | M2 | — | done | SMS Composition UI & Input Validation |
-| M3 | — | active | Textbee SMS Gateway Service Integration |
-| M4 | — | planned | Message History Log & Audit Dashboard |
+| M3 | — | done | Textbee SMS Gateway Service Integration |
+| M4 | — | active | Message History Log & Audit Dashboard |
 | M5 | — | planned | Verification, Documentation & Demonstration Readiness |
 
 ---
@@ -70,7 +70,7 @@ M1 → M2 → M3 → M4 → M5
 
 ## M3 — Textbee SMS Gateway Service Integration
 
-- **Status:** active
+- **Status:** done
 - **Objective:** Implement the backend service to communicate with the Textbee REST API, dispatch messages, handle API failures, and display user alerts.
 - **Deliverables:**
   - Dedicated service module (`sms_app/services/textbee.py`) encapsulating Textbee REST calls. (Completed)
@@ -88,7 +88,7 @@ M1 → M2 → M3 → M4 → M5
 
 ## M4 — Message History Log & Audit Dashboard
 
-- **Status:** planned
+- **Status:** active
 - **Objective:** Implement message persistence via Django ORM to record sent messages, delivery status, and timestamps, presenting a clear audit dashboard.
 - **Deliverables:**
   - `SMSLog` Django model capturing recipient, message snippet, status (`SENT`, `FAILED`), timestamp, and provider response details.
