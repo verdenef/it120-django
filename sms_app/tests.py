@@ -1,6 +1,7 @@
 from django.test import TestCase, Client
 from django.conf import settings
 from django.urls import reverse
+from django.middleware.csrf import _get_new_csrf_string, _mask_cipher_secret
 from sms_app.forms import SMSComposeForm
 from django import forms
 
@@ -272,3 +273,158 @@ class SMSComposeFormTests(TestCase):
             message_widget.attrs.get('placeholder'),
             'Type your message here...'
         )
+
+
+class SMSComposeViewTests(TestCase):
+    """
+    Tests for the SMS composition view logic, routing, PRG pattern,
+    Django flash messages, and CSRF protection enforcement.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_get_home_view_returns_200_and_provides_unbound_form(self):
+        """Verify GET / returns 200 and passes unbound SMSComposeForm in context."""
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'sms_app/home.html')
+        self.assertTemplateUsed(response, 'base.html')
+        self.assertIn('form', response.context)
+        form = response.context['form']
+        self.assertIsInstance(form, SMSComposeForm)
+        self.assertFalse(form.is_bound)
+
+    def test_post_valid_data_redirects_to_home_prg_pattern(self):
+        """Verify valid POST redirects to home (PRG pattern) with 302."""
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Test valid SMS message',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('home'))
+
+    def test_post_valid_data_follow_redirect_displays_success_flash_message(self):
+        """Verify following valid POST redirect provides 200 and success flash message."""
+        payload = {
+            'phone_number': '+639171234567',
+            'message': 'Hello from automated test',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        self.assertEqual(
+            str(messages_list[0]),
+            'Message queued for dispatch to +639171234567.'
+        )
+        self.assertEqual(messages_list[0].tags, 'success')
+        self.assertContains(response, 'Message queued for dispatch to +639171234567.')
+
+    def test_post_valid_data_sanitized_number_in_success_message(self):
+        """Verify sanitized phone number is formatted and used in the success flash message."""
+        payload = {
+            'phone_number': '+63 917-123-4567',
+            'message': 'Formatted number test',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context['messages'])
+        self.assertEqual(
+            str(messages_list[0]),
+            'Message queued for dispatch to +639171234567.'
+        )
+
+    def test_post_invalid_data_blank_fields_rerenders_form_with_errors(self):
+        """Verify invalid POST with blank fields re-renders 200 with bound form and errors."""
+        payload = {
+            'phone_number': '',
+            'message': '',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'sms_app/home.html')
+        self.assertIn('form', response.context)
+        form = response.context['form']
+        self.assertTrue(form.is_bound)
+        self.assertFalse(form.is_valid())
+        self.assertIn('phone_number', form.errors)
+        self.assertIn('Recipient phone number is required.', form.errors['phone_number'])
+        self.assertIn('message', form.errors)
+        self.assertIn('Message body cannot be empty.', form.errors['message'])
+
+        messages_list = list(response.context['messages'])
+        self.assertTrue(any('Please correct the errors below.' in str(m) for m in messages_list))
+        self.assertContains(response, 'Please correct the errors below.')
+
+    def test_post_invalid_phone_format_rerenders_with_phone_error(self):
+        """Verify invalid phone format re-renders with specific phone error."""
+        payload = {
+            'phone_number': 'not-a-valid-phone',
+            'message': 'Valid message body',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertIn('phone_number', form.errors)
+        self.assertNotIn('message', form.errors)
+        messages_list = list(response.context['messages'])
+        self.assertTrue(any('Please correct the errors below.' in str(m) for m in messages_list))
+
+    def test_post_message_exceeding_160_chars_rerenders_with_message_error(self):
+        """Verify message exceeding 160 characters re-renders with message error."""
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'm' * 161,
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertIn('message', form.errors)
+        self.assertNotIn('phone_number', form.errors)
+
+    def test_csrf_enforcement_rejects_post_without_token(self):
+        """Verify CSRF middleware returns 403 Forbidden on POST lacking CSRF token."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post(
+            reverse('home'),
+            data={'phone_number': '09171234567', 'message': 'Test message'}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_csrf_enforcement_accepts_post_with_valid_token(self):
+        """Verify CSRF middleware allows POST with matching CSRF cookie and form token."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_secret = _get_new_csrf_string()
+        csrf_client.cookies[settings.CSRF_COOKIE_NAME] = csrf_secret
+        csrf_token = _mask_cipher_secret(csrf_secret)
+
+        response = csrf_client.post(
+            reverse('home'),
+            data={
+                'phone_number': '09171234567',
+                'message': 'CSRF verified test message',
+                'csrfmiddlewaretoken': csrf_token,
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('home'))
+
+    def test_csrf_enforcement_accepts_post_with_valid_token_in_header(self):
+        """Verify CSRF middleware allows POST with matching CSRF cookie and X-CSRFToken header."""
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_secret = _get_new_csrf_string()
+        csrf_client.cookies[settings.CSRF_COOKIE_NAME] = csrf_secret
+        csrf_token = _mask_cipher_secret(csrf_secret)
+
+        response = csrf_client.post(
+            reverse('home'),
+            data={
+                'phone_number': '09171234567',
+                'message': 'CSRF header test message',
+            },
+            headers={'X-CSRFToken': csrf_token}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse('home'))
