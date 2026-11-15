@@ -1334,6 +1334,56 @@ class SMSLogViewIntegrationTests(TestCase):
         self.assertEqual(len(response.context["logs"]), 20)
 
 
+class SMSLogUIRenderingTests(TestCase):
+    """
+    Tests for rendering of the SMS message history audit dashboard and empty state.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_empty_state_rendered_when_no_logs(self):
+        """Verify GET / renders friendly empty state message when no dispatch logs exist."""
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No SMS messages dispatched yet")
+        self.assertNotContains(response, '<table class="table')
+
+    def test_audit_table_renders_sent_log(self):
+        """Verify sent SMSLog renders in audit table with success badge and formatted fields."""
+        log = SMSLog.objects.create(
+            recipient="+639171234567",
+            message="Test message sent content",
+            status="SENT",
+            gateway_message_id="batch-sent-999",
+        )
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "+639171234567")
+        self.assertContains(response, "Test message sent content")
+        self.assertContains(response, "batch-sent-999")
+        self.assertContains(response, "bg-success-subtle")
+        self.assertContains(response, "Sent")
+        self.assertNotContains(response, "No SMS messages dispatched yet")
+
+    def test_audit_table_renders_failed_log(self):
+        """Verify failed SMSLog renders in audit table with danger badge and error message snippet."""
+        log = SMSLog.objects.create(
+            recipient="09187654321",
+            message="Test failed message",
+            status="FAILED",
+            error_message="Invalid Textbee API Key.",
+        )
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "09187654321")
+        self.assertContains(response, "Test failed message")
+        self.assertContains(response, "bg-danger-subtle")
+        self.assertContains(response, "Failed")
+        self.assertContains(response, "Invalid Textbee API Key.")
+
+
+
 
 
 
