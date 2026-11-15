@@ -14,7 +14,7 @@ last_agent: antigravity
 last_ide: antigravity
 
 # ID only — resolve objective/criteria in 50_ROADMAP.md
-current_milestone: M1
+current_milestone: M2
 
 # Active scene or primary file in focus, if any
 current_scene: null
@@ -22,6 +22,7 @@ current_scene: null
 # System file basenames under brain/systems/ (without .md) to load on BOOT
 # Example: [Input, Movement]
 systems_in_scope:
+  - SMSCompositionUI
   - ConfigurationSecurity
 
 # Sole in-progress list (do not duplicate into Backlog)
@@ -35,4 +36,4 @@ blocked: []
 
 # Self-contained SHUTDOWN summary: what completed, what remains, what next agent should do
 # null = unset (Empty Brain / no session yet) — do not invent
-session_summary: "Day 0 setup initialized. Project intent, architectural decisions, systems documents, and 5-stage roadmap established for the Django Textbee SMS web application. Ready to proceed with Phase 2 Runtime Tooling & MCP Configuration."
+session_summary: "Milestone M1 (Project Foundation & Security Configuration) completed successfully via Standard Execution. Django project and app initialized, .env security isolated with .env.example, gitignore verified, base Bootstrap 5 template shell created, and 5/5 smoke tests passing with clean git commit. Advanced active milestone to M2 (SMS Composition UI & Input Validation), ready for Subagent-Driven Development (SDD) in a new session."

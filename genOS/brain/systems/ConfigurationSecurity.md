@@ -4,7 +4,7 @@
 Enforces secure environment configuration, secret isolation, and defensive security controls across the Django application.
 
 ## Status
-`unstarted`
+`implemented`
 
 ## Responsibilities
 - Load sensitive environment variables (`TEXTBEE_API_KEY`, `TEXTBEE_DEVICE_ID`, `DJANGO_SECRET_KEY`, `DEBUG`) from `.env`.
@@ -16,9 +16,10 @@ Enforces secure environment configuration, secret isolation, and defensive secur
 - Used by all systems: [[SMSGateway]], [[SMSCompositionUI]], [[MessageHistory]].
 
 ## Runtime References
-- `core/settings.py` (Planned Django settings)
+- `sms_sender/settings.py` (Django settings)
 - `.env` and `.env.example`
 - `.gitignore`
+- `sms_app/tests.py`
 
 ## Invariants
 - Secrets, API tokens, and private device IDs must never be hardcoded or committed to git.

@@ -16,8 +16,8 @@ Do not copy milestone criteria into Progress or Backlog. Progress stores only `c
 
 | ID | Parent | Status | Title |
 |----|--------|--------|-------|
-| M1 | — | active | Project Foundation & Security Configuration |
-| M2 | — | planned | SMS Composition UI & Input Validation |
+| M1 | — | done | Project Foundation & Security Configuration |
+| M2 | — | active | SMS Composition UI & Input Validation |
 | M3 | — | planned | Textbee SMS Gateway Service Integration |
 | M4 | — | planned | Message History Log & Audit Dashboard |
 | M5 | — | planned | Verification, Documentation & Demonstration Readiness |
@@ -32,7 +32,7 @@ M1 → M2 → M3 → M4 → M5
 
 ## M1 — Project Foundation & Security Configuration
 
-- **Status:** active
+- **Status:** done
 - **Objective:** Establish the Django project structure, dependency environment, secure environment variable configuration, and base application shell.
 - **Deliverables:**
   - `requirements.txt` with Django, `python-dotenv`, `requests`, and dependencies.
@@ -51,7 +51,7 @@ M1 → M2 → M3 → M4 → M5
 
 ## M2 — SMS Composition UI & Input Validation
 
-- **Status:** planned
+- **Status:** active
 - **Objective:** Build the responsive user interface for composing SMS messages with strict input validation, real-time character counting, and CSRF protection.
 - **Deliverables:**
   - Django Form (`SMSComposeForm`) with phone number and message fields.
