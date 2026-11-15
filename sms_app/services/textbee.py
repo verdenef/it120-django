@@ -99,6 +99,8 @@ def send_sms(
         response = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
         try:
             data = response.json()
+            if not isinstance(data, dict):
+                data = {}
         except Exception:
             data = {}
 

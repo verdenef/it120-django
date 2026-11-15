@@ -1,9 +1,13 @@
-from django.test import TestCase, Client
+from unittest.mock import patch, MagicMock
+from django.test import TestCase, Client, override_settings
 from django.conf import settings
 from django.urls import reverse
 from django.middleware.csrf import _get_new_csrf_string, _mask_cipher_secret
 from sms_app.forms import SMSComposeForm
 from django import forms
+import requests
+
+from sms_app.services.textbee import send_sms, TextbeeResult
 
 
 class ConfigurationSecurityTests(TestCase):
@@ -588,5 +592,407 @@ class SMSComposeTemplateUITests(TestCase):
         # ARIA Live Region for live counter
         self.assertIn('id="char-counter"', content)
         self.assertIn('aria-live="polite"', content)
+
+
+class TextbeeServiceTests(TestCase):
+    """
+    Comprehensive unit tests for the Textbee SMS gateway service (sms_app.services.textbee).
+    Verifies input validation, header/payload structure, credential isolation,
+    error branch handling (400, 401, 404, 429, 500), network resilience (timeouts,
+    connection failures, request exceptions), and response parsing without making live requests.
+    """
+
+    def setUp(self):
+        self.recipient = "+639171234567"
+        self.message = "Hello from automated test"
+        self.api_key = "test-api-key-xyz-12345"
+        self.device_id = "test-device-id-67890"
+        self.base_url = "https://api.textbee.dev/api/v1"
+
+    @override_settings(TEXTBEE_API_KEY="")
+    def test_missing_api_key_when_argument_none_and_settings_empty(self):
+        """Verify error result when API key is None and settings.TEXTBEE_API_KEY is empty."""
+        result = send_sms(recipient=self.recipient, message=self.message, api_key=None)
+        self.assertFalse(result.success)
+        self.assertIn("Textbee API key is not configured", result.error_message)
+        self.assertIsNone(result.message_id)
+
+    def test_missing_api_key_when_empty_string(self):
+        """Verify error result when API key is provided as empty or whitespace string."""
+        for empty_val in ["", "   ", None]:
+            with override_settings(TEXTBEE_API_KEY=""):
+                result = send_sms(recipient=self.recipient, message=self.message, api_key=empty_val)
+                self.assertFalse(result.success)
+                self.assertIn("Textbee API key is not configured", result.error_message)
+
+    def test_empty_recipient_validation(self):
+        """Verify error result when recipient is empty or whitespace."""
+        for empty_recipient in ["", "   "]:
+            result = send_sms(recipient=empty_recipient, message=self.message, api_key=self.api_key)
+            self.assertFalse(result.success)
+            self.assertEqual(result.error_message, "Recipient phone number cannot be empty.")
+
+    def test_empty_message_validation(self):
+        """Verify error result when message body is empty or whitespace."""
+        for empty_msg in ["", "   "]:
+            result = send_sms(recipient=self.recipient, message=empty_msg, api_key=self.api_key)
+            self.assertFalse(result.success)
+            self.assertEqual(result.error_message, "SMS message content cannot be empty.")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_successful_send_with_sms_batch_id(self, mock_post):
+        """Verify successful dispatch extracts smsBatchId from HTTP 200 response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "smsBatchId": "batch-alpha-123",
+            "status": "in_progress",
+        }
+        mock_post.return_value = mock_response
+
+        result = send_sms(
+            recipient=self.recipient,
+            message=self.message,
+            api_key=self.api_key,
+            device_id=self.device_id,
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message_id, "batch-alpha-123")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.raw_response, {"smsBatchId": "batch-alpha-123", "status": "in_progress"})
+        self.assertIsNone(result.error_message)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_successful_send_http_201_with_underscore_id(self, mock_post):
+        """Verify successful dispatch extracts _id from HTTP 201 response."""
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "_id": "mongo-obj-id-456",
+            "success": True,
+        }
+        mock_post.return_value = mock_response
+
+        result = send_sms(
+            recipient=self.recipient,
+            message=self.message,
+            api_key=self.api_key,
+        )
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.message_id, "mongo-obj-id-456")
+        self.assertEqual(result.status_code, 201)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_successful_send_with_id_and_batch_id_fallbacks(self, mock_post):
+        """Verify message_id extraction fallbacks for 'id' and 'batchId' response fields."""
+        # Test 'id' field
+        mock_resp1 = MagicMock()
+        mock_resp1.status_code = 200
+        mock_resp1.json.return_value = {"id": "id-789"}
+        mock_post.return_value = mock_resp1
+
+        res1 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertTrue(res1.success)
+        self.assertEqual(res1.message_id, "id-789")
+
+        # Test 'batchId' field
+        mock_resp2 = MagicMock()
+        mock_resp2.status_code = 200
+        mock_resp2.json.return_value = {"batchId": "legacy-batch-999"}
+        mock_post.return_value = mock_resp2
+
+        res2 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertTrue(res2.success)
+        self.assertEqual(res2.message_id, "legacy-batch-999")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_successful_send_without_batch_id_in_response(self, mock_post):
+        """Verify successful dispatch handles 200 response lacking an explicit batch/message ID."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": True, "message": "Dispatched"}
+        mock_post.return_value = mock_response
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertTrue(result.success)
+        self.assertIsNone(result.message_id)
+        self.assertEqual(result.status_code, 200)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_request_payload_and_headers_structure_with_device_id(self, mock_post):
+        """Verify correct endpoint URL, headers, and JSON body with deviceId."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"smsBatchId": "batch-101"}
+        mock_post.return_value = mock_response
+
+        send_sms(
+            recipient="  +639171234567  ",
+            message="Test message body",
+            api_key="secret-api-key-123",
+            device_id="my-phone-device-456",
+            base_url="https://api.textbee.dev/api/v1/",
+            timeout=15,
+        )
+
+        mock_post.assert_called_once_with(
+            "https://api.textbee.dev/api/v1/gateway/send-sms",
+            json={
+                "recipients": ["+639171234567"],
+                "message": "Test message body",
+                "deviceId": "my-phone-device-456",
+            },
+            headers={
+                "x-api-key": "secret-api-key-123",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_request_payload_omits_device_id_when_empty_or_none(self, mock_post):
+        """Verify payload does NOT include deviceId key when device_id is not provided."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"smsBatchId": "batch-102"}
+        mock_post.return_value = mock_response
+
+        send_sms(
+            recipient=self.recipient,
+            message=self.message,
+            api_key=self.api_key,
+            device_id="",
+        )
+
+        args, kwargs = mock_post.call_args
+        self.assertNotIn("deviceId", kwargs["json"])
+        self.assertEqual(kwargs["json"]["recipients"], [self.recipient])
+        self.assertEqual(kwargs["json"]["message"], self.message)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_http_401_unauthorized_does_not_leak_api_key(self, mock_post):
+        """Verify HTTP 401 returns clear authentication error and does not leak API key."""
+        sensitive_key = "super-secret-production-textbee-key-999"
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_response.json.return_value = {"message": "Invalid API Key"}
+        mock_post.return_value = mock_response
+
+        result = send_sms(
+            recipient=self.recipient,
+            message=self.message,
+            api_key=sensitive_key,
+        )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.status_code, 401)
+        self.assertEqual(result.error_message, "Authentication failed: Invalid Textbee API key.")
+        self.assertNotIn(sensitive_key, result.error_message)
+        self.assertNotIn(sensitive_key, str(result.raw_response))
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_http_400_bad_request_extracts_message_or_error(self, mock_post):
+        """Verify HTTP 400 extracts custom validation message or fallback."""
+        # Subtest 1: 'message' field present
+        mock_resp1 = MagicMock()
+        mock_resp1.status_code = 400
+        mock_resp1.json.return_value = {"message": "Invalid phone number format."}
+        mock_post.return_value = mock_resp1
+
+        res1 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res1.success)
+        self.assertEqual(res1.status_code, 400)
+        self.assertEqual(res1.error_message, "Invalid phone number format.")
+
+        # Subtest 2: 'error' field present
+        mock_resp2 = MagicMock()
+        mock_resp2.status_code = 400
+        mock_resp2.json.return_value = {"error": "Malformed payload structure."}
+        mock_post.return_value = mock_resp2
+
+        res2 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res2.success)
+        self.assertEqual(res2.status_code, 400)
+        self.assertEqual(res2.error_message, "Malformed payload structure.")
+
+        # Subtest 3: empty json response
+        mock_resp3 = MagicMock()
+        mock_resp3.status_code = 400
+        mock_resp3.json.return_value = {}
+        mock_post.return_value = mock_resp3
+
+        res3 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res3.success)
+        self.assertEqual(res3.status_code, 400)
+        self.assertEqual(res3.error_message, "Gateway returned HTTP 400.")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_http_404_not_found(self, mock_post):
+        """Verify HTTP 404 returns not found error detail or fallback."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_response.json.return_value = {"message": "Device not registered or offline."}
+        mock_post.return_value = mock_response
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertEqual(result.status_code, 404)
+        self.assertEqual(result.error_message, "Device not registered or offline.")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_http_429_rate_limit_exceeded(self, mock_post):
+        """Verify HTTP 429 returns rate limit / quota exhaustion message."""
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.json.return_value = {"error": "Too Many Requests"}
+        mock_post.return_value = mock_response
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertEqual(result.status_code, 429)
+        self.assertEqual(result.error_message, "Rate limit exceeded or insufficient credits.")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_http_500_gateway_error(self, mock_post):
+        """Verify HTTP 500 returns friendly gateway error."""
+        # With error message in body
+        mock_resp1 = MagicMock()
+        mock_resp1.status_code = 500
+        mock_resp1.json.return_value = {"message": "Internal gateway failure."}
+        mock_post.return_value = mock_resp1
+
+        res1 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res1.success)
+        self.assertEqual(res1.status_code, 500)
+        self.assertEqual(res1.error_message, "Internal gateway failure.")
+
+        # With empty body
+        mock_resp2 = MagicMock()
+        mock_resp2.status_code = 500
+        mock_resp2.json.return_value = {}
+        mock_post.return_value = mock_resp2
+
+        res2 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res2.success)
+        self.assertEqual(res2.status_code, 500)
+        self.assertEqual(res2.error_message, "Gateway returned HTTP 500.")
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_timeout_exception_returns_friendly_error(self, mock_post):
+        """Verify requests.exceptions.Timeout returns friendly timeout error."""
+        mock_post.side_effect = requests.exceptions.Timeout("Connection timed out after 10s")
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertIsNone(result.status_code)
+        self.assertEqual(
+            result.error_message,
+            "The request to Textbee gateway timed out. Please try again.",
+        )
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_connection_error_exception_returns_friendly_error(self, mock_post):
+        """Verify requests.exceptions.ConnectionError returns connectivity error."""
+        mock_post.side_effect = requests.exceptions.ConnectionError("Name resolution failed")
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertIsNone(result.status_code)
+        self.assertEqual(
+            result.error_message,
+            "Unable to reach Textbee gateway. Please check internet connectivity.",
+        )
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_general_request_exception_returns_error(self, mock_post):
+        """Verify requests.exceptions.RequestException returns descriptive network error."""
+        mock_post.side_effect = requests.exceptions.RequestException("Generic network failure")
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertIsNone(result.status_code)
+        self.assertIn("Network error communicating with Textbee gateway: RequestException", result.error_message)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_unexpected_exception_returns_error(self, mock_post):
+        """Verify unhandled general exceptions are caught and return descriptive error."""
+        mock_post.side_effect = RuntimeError("Fatal hardware failure")
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertIsNone(result.status_code)
+        self.assertIn("Unexpected error: RuntimeError", result.error_message)
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_non_dict_json_response_handling(self, mock_post):
+        """Verify non-dict JSON responses (e.g., list, string, integer) do not crash send_sms."""
+        # Non-dict on 200
+        mock_resp1 = MagicMock()
+        mock_resp1.status_code = 200
+        mock_resp1.json.return_value = ["item1", "item2"]
+        mock_post.return_value = mock_resp1
+
+        res1 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertTrue(res1.success)
+        self.assertIsNone(res1.message_id)
+        self.assertEqual(res1.raw_response, {})
+
+        # Non-dict on 500
+        mock_resp2 = MagicMock()
+        mock_resp2.status_code = 500
+        mock_resp2.json.return_value = "Internal Error String"
+        mock_post.return_value = mock_resp2
+
+        res2 = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(res2.success)
+        self.assertEqual(res2.error_message, "Gateway returned HTTP 500.")
+        self.assertEqual(res2.raw_response, {})
+
+    @patch("sms_app.services.textbee.requests.post")
+    def test_invalid_json_decode_error_handled_gracefully(self, mock_post):
+        """Verify invalid non-JSON HTTP responses do not crash JSON parsing."""
+        mock_response = MagicMock()
+        mock_response.status_code = 502
+        mock_response.json.side_effect = ValueError("No JSON object could be decoded")
+        mock_post.return_value = mock_response
+
+        result = send_sms(self.recipient, self.message, api_key=self.api_key)
+        self.assertFalse(result.success)
+        self.assertEqual(result.status_code, 502)
+        self.assertEqual(result.error_message, "Gateway returned HTTP 502.")
+        self.assertEqual(result.raw_response, {})
+
+    @patch("sms_app.services.textbee.requests.post")
+    @override_settings(
+        TEXTBEE_API_KEY="settings-configured-api-key",
+        TEXTBEE_DEVICE_ID="settings-configured-device-id",
+        TEXTBEE_BASE_URL="https://settings.api.endpoint",
+    )
+    def test_defaults_to_django_settings_when_parameters_omitted(self, mock_post):
+        """Verify send_sms falls back to settings attributes when optional arguments are None."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"smsBatchId": "batch-from-settings"}
+        mock_post.return_value = mock_response
+
+        result = send_sms(recipient=self.recipient, message=self.message)
+
+        self.assertTrue(result.success)
+        mock_post.assert_called_once_with(
+            "https://settings.api.endpoint/gateway/send-sms",
+            json={
+                "recipients": [self.recipient],
+                "message": self.message,
+                "deviceId": "settings-configured-device-id",
+            },
+            headers={
+                "x-api-key": "settings-configured-api-key",
+                "Content-Type": "application/json",
+            },
+            timeout=10,
+        )
+
 
 
