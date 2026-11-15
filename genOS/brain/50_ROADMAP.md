@@ -73,14 +73,14 @@ M1 → M2 → M3 → M4 → M5
 - **Status:** active
 - **Objective:** Implement the backend service to communicate with the Textbee REST API, dispatch messages, handle API failures, and display user alerts.
 - **Deliverables:**
-  - Dedicated service module (`sms_app/services/textbee.py`) encapsulating Textbee REST calls.
-  - View logic to process POST requests, call Textbee API, and capture responses.
-  - Robust exception handling for connection timeouts, authentication failures, and API errors.
-  - Django messages framework integration displaying user success and error alerts.
+  - Dedicated service module (`sms_app/services/textbee.py`) encapsulating Textbee REST calls. (Completed)
+  - View logic to process POST requests, call Textbee API, and capture responses. (Completed)
+  - Robust exception handling for connection timeouts, authentication failures, and API errors. (Completed)
+  - Django messages framework integration displaying user success and error alerts. (Completed)
 - **Completion criteria:**
-  - Outbound SMS successfully dispatches through Textbee to target recipient.
-  - Clear user-facing alert displayed upon success.
-  - Simulated failures (invalid API key, device offline, network timeout) display friendly, actionable error messages without server 500 errors.
+  - Outbound SMS successfully dispatches through Textbee to target recipient. (Verified — unit & mock integration tests)
+  - Clear user-facing alert displayed upon success. (Verified — flash success message with batch ID)
+  - Simulated failures (invalid API key, device offline, network timeout) display friendly, actionable error messages without server 500 errors. (Verified — 29 test cases covering 401, 429, timeouts, network failures, unexpected errors)
 - **Dependencies:** M1, M2
 - **Systems:** [[SMSGateway]], [[SMSCompositionUI]], [[ConfigurationSecurity]]
 
