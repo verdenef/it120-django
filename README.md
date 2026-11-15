@@ -283,15 +283,15 @@ python manage.py test -v 2
 
 | Test Class | Focus Area | Test Count | Key Verification Objectives |
 | :--- | :--- | :---: | :--- |
-| `ConfigurationSecurityTests` | Security & Settings | 5 | Verifies `.env.example` existence, `.gitignore` exclusion of `.env`, safe default `SECRET_KEY`, boolean `DEBUG` parsing, and Textbee setting isolation. |
-| `ViewSmokeTests` | Routing & Views | 3 | Verifies root URL resolves with HTTP 200, uses `home.html`, and populates form and log contexts. |
-| `SMSComposeFormTests` | Form Validation | 20 | Validates required fields, Philippine mobile regex (`09XXXXXXXXX`, `+639...`), international E.164, space/hyphen cleaning, 160-char length limits, and edge cases. |
-| `SMSComposeViewTests` | View Lifecycle & PRG | 15 | Validates GET requests, invalid POST handling, valid POST dispatch triggering `send_sms`, PRG redirect to `home`, flash messages, and CSRF token presence. |
+| `ConfigurationSecurityTests` | Security & Settings | 3 | Verifies safe default `SECRET_KEY`, CSRF protection middleware enabled, and Textbee gateway configuration attributes present in settings. |
+| `ViewSmokeTests` | Routing & Views | 2 | Verifies root URL resolves with HTTP 200, loads base and home templates, and shields sensitive credentials from response HTML. |
+| `SMSComposeFormTests` | Form Validation | 18 | Validates required fields, Philippine mobile regex (`09XXXXXXXXX`, `+639...`), international E.164, space/hyphen cleaning, 160-char length limits, and edge cases. |
+| `SMSComposeViewTests` | View Lifecycle & PRG | 17 | Validates GET requests, invalid POST handling, valid POST dispatch triggering `send_sms`, PRG redirect to `home`, flash messages, and CSRF token presence. |
 | `SMSComposeTemplateUITests` | Template & Controls | 7 | Verifies rendering of form input tags, Bootstrap `is-invalid` states, inline error messages, character counter span, submit button, and CSRF hidden field. |
-| `TextbeeServiceTests` | Gateway Service Client | 18 | Tests missing API key, missing device ID, 10-second request timeouts, network connection drops, HTTP 400/401/403/500 errors, JSON responses, and batch ID extraction. |
+| `TextbeeServiceTests` | Gateway Service Client | 22 | Tests missing API key, missing device ID, 10-second request timeouts, network connection drops, HTTP 400/401/403/500 errors, JSON responses, and batch ID extraction. |
 | `SMSLogModelTests` | Database Modeling | 4 | Verifies model creation, field attributes, `SENT`/`FAILED` status choices, default ordering (`-created_at`), and string formatting. |
 | `SMSLogViewIntegrationTests` | End-to-End Integration | 5 | Validates full pipeline: form POST -> service execution -> database logging (`SENT` or `FAILED` record creation with batch ID or error message). |
-| `SMSLogUIRenderingTests` | History Dashboard UI | 4 | Verifies empty state placeholder, populated table rows, status badge styling (success/danger), and error popover/tooltip attributes. |
+| `SMSLogUIRenderingTests` | History Dashboard UI | 3 | Verifies empty state placeholder, populated table rows, status badge styling (success/danger), and error popover/tooltip attributes. |
 
 **Current Test Result:** `Ran 81 tests in 0.110s — OK (0 failures, 0 errors)`.
 
