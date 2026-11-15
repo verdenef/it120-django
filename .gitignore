@@ -1,0 +1,30 @@
+# Environment and Credentials (CRITICAL: zero secret leakage)
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# SQLite Database
+*.sqlite3
+db.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE and OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}SMS Dispatcher - Dashboard{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4 text-center">
+                <div class="mb-3">
+                    <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 border border-success-subtle rounded-pill">
+                        <i class="bi bi-shield-check me-1"></i> Foundation &amp; Security Configured (M1)
+                    </span>
+                </div>
+                <h1 class="h3 fw-bold mb-2">Django SMS Web Application</h1>
+                <p class="text-muted mb-4">
+                    Textbee SMS Gateway integration ready for Milestone 2 UI Composition and Form Validation.
+                </p>
+                <div class="row g-3 justify-content-center text-start">
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-white h-100">
+                            <h6 class="fw-bold mb-1"><i class="bi bi-lock me-1 text-primary"></i> Environment</h6>
+                            <small class="text-muted">Settings and API credentials managed securely via <code>.env</code>.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-white h-100">
+                            <h6 class="fw-bold mb-1"><i class="bi bi-layout-text-window-reverse me-1 text-primary"></i> Presentation</h6>
+                            <small class="text-muted">Bootstrap 5 responsive UI shell with message banners.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded bg-white h-100">
+                            <h6 class="fw-bold mb-1"><i class="bi bi-send me-1 text-primary"></i> Textbee Gateway</h6>
+                            <small class="text-muted">REST API service layer ready for dispatch integration (M3).</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

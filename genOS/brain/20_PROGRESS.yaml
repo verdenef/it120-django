@@ -1,0 +1,38 @@
+# Authoritative session RAM / cold-start handoff. AI-owned. See AGENTS.md → Ownership.
+# Execution state only. Milestone definitions live in 50_ROADMAP.md — do not duplicate them here.
+# Do not mirror working_on into the Backlog.
+
+schema_version: 2
+
+# ISO date of last SHUTDOWN update (YYYY-MM-DD)
+last_updated: 2026-11-15
+
+# Who last wrote this file (e.g. cursor-agent, agy-agent, agency:unity-specialist)
+last_agent: antigravity
+
+# Host that last wrote this file (e.g. cursor, antigravity, other)
+last_ide: antigravity
+
+# ID only — resolve objective/criteria in 50_ROADMAP.md
+current_milestone: M1
+
+# Active scene or primary file in focus, if any
+current_scene: null
+
+# System file basenames under brain/systems/ (without .md) to load on BOOT
+# Example: [Input, Movement]
+systems_in_scope:
+  - ConfigurationSecurity
+
+# Sole in-progress list (do not duplicate into Backlog)
+working_on: []
+
+# Known bugs or risks
+known_issues: []
+
+# Blockers requiring human decision or external input
+blocked: []
+
+# Self-contained SHUTDOWN summary: what completed, what remains, what next agent should do
+# null = unset (Empty Brain / no session yet) — do not invent
+session_summary: "Day 0 setup initialized. Project intent, architectural decisions, systems documents, and 5-stage roadmap established for the Django Textbee SMS web application. Ready to proceed with Phase 2 Runtime Tooling & MCP Configuration."
