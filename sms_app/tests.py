@@ -1236,5 +1236,104 @@ class SMSLogModelTests(TestCase):
         )
 
 
+class SMSLogViewIntegrationTests(TestCase):
+    """
+    Integration tests for SMS dispatch persistence and dashboard log retrieval in views.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    @patch("sms_app.views.send_sms")
+    def test_successful_dispatch_creates_sent_log(self, mock_send_sms):
+        """Verify successful dispatch creates an SMSLog record with status SENT."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=True,
+            status_code=200,
+            message_id="mock-batch-123",
+            error_message=None,
+        )
+
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "+639171234567",
+                "message": "Test successful log creation",
+            },
+        )
+        self.assertRedirects(response, reverse("home"))
+        self.assertEqual(SMSLog.objects.count(), 1)
+        log = SMSLog.objects.first()
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test successful log creation")
+        self.assertEqual(log.status, "SENT")
+        self.assertEqual(log.gateway_message_id, "mock-batch-123")
+        self.assertEqual(log.error_message, "")
+
+    @patch("sms_app.views.send_sms")
+    def test_failed_dispatch_creates_failed_log(self, mock_send_sms):
+        """Verify failed gateway dispatch creates an SMSLog record with status FAILED."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            status_code=401,
+            message_id=None,
+            error_message="Invalid Textbee API Key.",
+        )
+
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "+639171234567",
+                "message": "Test failed log creation",
+            },
+        )
+        self.assertRedirects(response, reverse("home"))
+        self.assertEqual(SMSLog.objects.count(), 1)
+        log = SMSLog.objects.first()
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test failed log creation")
+        self.assertEqual(log.status, "FAILED")
+        self.assertEqual(log.gateway_message_id, "")
+        self.assertEqual(log.error_message, "Invalid Textbee API Key.")
+
+    @patch("sms_app.views.send_sms")
+    def test_invalid_form_submission_does_not_create_log(self, mock_send_sms):
+        """Verify invalid form submissions do not create spurious database log records."""
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "invalid-phone",
+                "message": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SMSLog.objects.count(), 0)
+        mock_send_sms.assert_not_called()
+
+    def test_home_view_passes_logs_in_context(self):
+        """Verify GET / passes recent SMSLog query in template context."""
+        log1 = SMSLog.objects.create(recipient="09171111111", message="Message 1")
+        log2 = SMSLog.objects.create(recipient="09172222222", message="Message 2")
+
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("logs", response.context)
+        logs = list(response.context["logs"])
+        self.assertEqual(len(logs), 2)
+        self.assertEqual(logs[0].pk, log2.pk)
+        self.assertEqual(logs[1].pk, log1.pk)
+
+    def test_home_view_limits_logs_to_20_in_context(self):
+        """Verify GET / limits dashboard logs queryset to at most 20 records."""
+        for i in range(25):
+            SMSLog.objects.create(recipient="09170000000", message=f"Message {i}")
+
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("logs", response.context)
+        self.assertEqual(len(response.context["logs"]), 20)
+
+
+
 
 
