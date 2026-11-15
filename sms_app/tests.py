@@ -428,3 +428,165 @@ class SMSComposeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('home'))
+
+
+class SMSComposeTemplateUITests(TestCase):
+    """
+    Integration tests for UI template rendering in home.html,
+    verifying Bootstrap 5 components, accessible labels,
+    live character counter markup, inline error states, and CSRF protection.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_get_home_renders_composition_card_and_form(self):
+        """Verify GET / renders composition card with form, inputs, labels, help text, and counter."""
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        # Composition card header
+        self.assertIn('Compose SMS Message', content)
+
+        # Form element attributes
+        self.assertIn('method="post"', content)
+        self.assertIn(f'action="{reverse("home")}"', content)
+
+        # CSRF token hidden input
+        self.assertIn('name="csrfmiddlewaretoken"', content)
+
+        # Labels
+        self.assertIn('for="id_phone_number"', content)
+        self.assertIn('Recipient Mobile Number', content)
+        self.assertIn('for="id_message"', content)
+        self.assertIn('Message Body', content)
+
+        # Inputs
+        self.assertIn('name="phone_number"', content)
+        self.assertIn('id="id_phone_number"', content)
+        self.assertIn('name="message"', content)
+        self.assertIn('id="id_message"', content)
+
+        # Help text
+        self.assertIn(
+            'Enter Philippine mobile (e.g. 09171234567, +639171234567) or international format.',
+            content
+        )
+
+        # Live character counter elements & accessibility
+        self.assertIn('id="char-counter"', content)
+        self.assertIn('aria-live="polite"', content)
+        self.assertIn('0 / 160', content)
+        self.assertIn('Standard SMS segment limit: 160 characters', content)
+
+        # Action buttons
+        self.assertIn('Send SMS', content)
+        self.assertIn('type="submit"', content)
+
+    def test_invalid_post_renders_inline_phone_error_feedback(self):
+        """Verify invalid phone input renders is-invalid class and inline feedback containing error text."""
+        payload = {
+            'phone_number': 'invalid-phone-number',
+            'message': 'Hello this is valid text',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        # Check phone input has is-invalid class
+        self.assertIn('is-invalid', content)
+        self.assertIn('invalid-feedback', content)
+        self.assertIn(
+            'Enter a valid mobile phone number (e.g., +639171234567 or 09171234567).',
+            content
+        )
+
+        # Value preservation
+        self.assertIn('value="invalid-phone-number"', content)
+        self.assertIn('Hello this is valid text', content)
+
+    def test_invalid_post_renders_inline_message_error_feedback(self):
+        """Verify invalid message input renders is-invalid class and inline feedback containing error text."""
+        payload = {
+            'phone_number': '09171234567',
+            'message': '',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        self.assertIn('is-invalid', content)
+        self.assertIn('invalid-feedback', content)
+        self.assertIn('Message body cannot be empty.', content)
+
+    def test_invalid_post_both_fields_empty_renders_both_errors(self):
+        """Verify submitting empty form renders inline error feedback for both fields."""
+        payload = {
+            'phone_number': '',
+            'message': '',
+        }
+        response = self.client.post(reverse('home'), data=payload)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        self.assertIn('Recipient phone number is required.', content)
+        self.assertIn('Message body cannot be empty.', content)
+
+    def test_character_counter_script_present(self):
+        """Verify the client-side character counter JavaScript is present in the rendered page."""
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        self.assertIn('char-counter', content)
+        self.assertIn('addEventListener', content)
+        self.assertIn('input', content)
+        self.assertIn('keyup', content)
+        self.assertIn('bg-warning', content)
+        self.assertIn('bg-danger', content)
+        self.assertIn('160', content)
+        self.assertIn('140', content)
+
+    def test_post_valid_redirect_resets_form_to_clean_state(self):
+        """Verify that after PRG redirect upon valid submission, the rendered form is clean and empty."""
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Hello from valid submission test',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+        # Success message displayed
+        self.assertIn('Message queued for dispatch to 09171234567.', content)
+        # Form fields are clean/empty
+        self.assertIn('value=""', content)
+        self.assertIn('>0 / 160<', content)
+
+    def test_template_accessibility_attributes(self):
+        """Verify WCAG 2.1 AA accessibility features: label associations, ARIA live regions, and semantic roles."""
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
+
+        content = response.content.decode('utf-8')
+
+        # Label-to-input association
+        self.assertIn('<label for="id_phone_number"', content)
+        self.assertIn('<input type="tel"', content)
+        self.assertIn('id="id_phone_number"', content)
+
+        self.assertIn('<label for="id_message"', content)
+        self.assertIn('<textarea', content)
+        self.assertIn('id="id_message"', content)
+
+        # ARIA Live Region for live counter
+        self.assertIn('id="char-counter"', content)
+        self.assertIn('aria-live="polite"', content)
+
+
