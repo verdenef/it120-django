@@ -6,7 +6,9 @@ from django.middleware.csrf import _get_new_csrf_string, _mask_cipher_secret
 from sms_app.forms import SMSComposeForm
 from django import forms
 import requests
+from django.contrib import admin
 
+from sms_app.models import SMSLog
 from sms_app.services.textbee import send_sms, TextbeeResult
 
 
@@ -1178,6 +1180,210 @@ class TextbeeServiceTests(TestCase):
             },
             timeout=10,
         )
+
+
+class SMSLogModelTests(TestCase):
+    """
+    Tests for the SMSLog Django model and admin interface.
+    """
+
+    def test_sms_log_creation_and_defaults(self):
+        """Verify fields, default values, and successful save."""
+        log = SMSLog.objects.create(
+            recipient="+639171234567",
+            message="Test SMS message content",
+        )
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test SMS message content")
+        self.assertEqual(log.status, "SENT")
+        self.assertEqual(log.gateway_message_id, "")
+        self.assertEqual(log.error_message, "")
+        self.assertIsNotNone(log.created_at)
+
+    def test_sms_log_str_representation(self):
+        """Verify __str__ format includes recipient, status, and formatted date."""
+        log = SMSLog.objects.create(
+            recipient="09171234567",
+            message="Hello World",
+            status="SENT",
+        )
+        str_rep = str(log)
+        self.assertIn("09171234567", str_rep)
+        self.assertIn("SENT", str_rep)
+
+    def test_sms_log_ordering(self):
+        """Verify records are ordered by -created_at descending by default."""
+        import time
+        log1 = SMSLog.objects.create(recipient="09171111111", message="First")
+        time.sleep(0.01)
+        log2 = SMSLog.objects.create(recipient="09172222222", message="Second")
+        logs = list(SMSLog.objects.all())
+        self.assertEqual(logs[0].pk, log2.pk)
+        self.assertEqual(logs[1].pk, log1.pk)
+
+    def test_sms_log_admin_registered(self):
+        """Verify SMSLog is registered in admin.site with customized ModelAdmin."""
+        self.assertIn(SMSLog, admin.site._registry)
+        model_admin = admin.site._registry[SMSLog]
+        self.assertEqual(
+            model_admin.list_display,
+            ("recipient", "status", "gateway_message_id", "created_at")
+        )
+        self.assertEqual(model_admin.list_filter, ("status", "created_at"))
+        self.assertEqual(
+            model_admin.search_fields,
+            ("recipient", "message", "gateway_message_id")
+        )
+
+
+class SMSLogViewIntegrationTests(TestCase):
+    """
+    Integration tests for SMS dispatch persistence and dashboard log retrieval in views.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    @patch("sms_app.views.send_sms")
+    def test_successful_dispatch_creates_sent_log(self, mock_send_sms):
+        """Verify successful dispatch creates an SMSLog record with status SENT."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=True,
+            status_code=200,
+            message_id="mock-batch-123",
+            error_message=None,
+        )
+
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "+639171234567",
+                "message": "Test successful log creation",
+            },
+        )
+        self.assertRedirects(response, reverse("home"))
+        self.assertEqual(SMSLog.objects.count(), 1)
+        log = SMSLog.objects.first()
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test successful log creation")
+        self.assertEqual(log.status, "SENT")
+        self.assertEqual(log.gateway_message_id, "mock-batch-123")
+        self.assertEqual(log.error_message, "")
+
+    @patch("sms_app.views.send_sms")
+    def test_failed_dispatch_creates_failed_log(self, mock_send_sms):
+        """Verify failed gateway dispatch creates an SMSLog record with status FAILED."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            status_code=401,
+            message_id=None,
+            error_message="Invalid Textbee API Key.",
+        )
+
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "+639171234567",
+                "message": "Test failed log creation",
+            },
+        )
+        self.assertRedirects(response, reverse("home"))
+        self.assertEqual(SMSLog.objects.count(), 1)
+        log = SMSLog.objects.first()
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test failed log creation")
+        self.assertEqual(log.status, "FAILED")
+        self.assertEqual(log.gateway_message_id, "")
+        self.assertEqual(log.error_message, "Invalid Textbee API Key.")
+
+    @patch("sms_app.views.send_sms")
+    def test_invalid_form_submission_does_not_create_log(self, mock_send_sms):
+        """Verify invalid form submissions do not create spurious database log records."""
+        response = self.client.post(
+            reverse("home"),
+            data={
+                "phone_number": "invalid-phone",
+                "message": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SMSLog.objects.count(), 0)
+        mock_send_sms.assert_not_called()
+
+    def test_home_view_passes_logs_in_context(self):
+        """Verify GET / passes recent SMSLog query in template context."""
+        log1 = SMSLog.objects.create(recipient="09171111111", message="Message 1")
+        log2 = SMSLog.objects.create(recipient="09172222222", message="Message 2")
+
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("logs", response.context)
+        logs = list(response.context["logs"])
+        self.assertEqual(len(logs), 2)
+        self.assertEqual(logs[0].pk, log2.pk)
+        self.assertEqual(logs[1].pk, log1.pk)
+
+    def test_home_view_limits_logs_to_20_in_context(self):
+        """Verify GET / limits dashboard logs queryset to at most 20 records."""
+        for i in range(25):
+            SMSLog.objects.create(recipient="09170000000", message=f"Message {i}")
+
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("logs", response.context)
+        self.assertEqual(len(response.context["logs"]), 20)
+
+
+class SMSLogUIRenderingTests(TestCase):
+    """
+    Tests for rendering of the SMS message history audit dashboard and empty state.
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_empty_state_rendered_when_no_logs(self):
+        """Verify GET / renders friendly empty state message when no dispatch logs exist."""
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No SMS messages dispatched yet")
+        self.assertNotContains(response, '<table class="table')
+
+    def test_audit_table_renders_sent_log(self):
+        """Verify sent SMSLog renders in audit table with success badge and formatted fields."""
+        log = SMSLog.objects.create(
+            recipient="+639171234567",
+            message="Test message sent content",
+            status="SENT",
+            gateway_message_id="batch-sent-999",
+        )
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "+639171234567")
+        self.assertContains(response, "Test message sent content")
+        self.assertContains(response, "batch-sent-999")
+        self.assertContains(response, "bg-success-subtle")
+        self.assertContains(response, "Sent")
+        self.assertNotContains(response, "No SMS messages dispatched yet")
+
+    def test_audit_table_renders_failed_log(self):
+        """Verify failed SMSLog renders in audit table with danger badge and error message snippet."""
+        log = SMSLog.objects.create(
+            recipient="09187654321",
+            message="Test failed message",
+            status="FAILED",
+            error_message="Invalid Textbee API Key.",
+        )
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "09187654321")
+        self.assertContains(response, "Test failed message")
+        self.assertContains(response, "bg-danger-subtle")
+        self.assertContains(response, "Failed")
+        self.assertContains(response, "Invalid Textbee API Key.")
+
+
+
 
 
 
