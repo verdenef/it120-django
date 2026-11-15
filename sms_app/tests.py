@@ -6,7 +6,9 @@ from django.middleware.csrf import _get_new_csrf_string, _mask_cipher_secret
 from sms_app.forms import SMSComposeForm
 from django import forms
 import requests
+from django.contrib import admin
 
+from sms_app.models import SMSLog
 from sms_app.services.textbee import send_sms, TextbeeResult
 
 
@@ -1178,6 +1180,61 @@ class TextbeeServiceTests(TestCase):
             },
             timeout=10,
         )
+
+
+class SMSLogModelTests(TestCase):
+    """
+    Tests for the SMSLog Django model and admin interface.
+    """
+
+    def test_sms_log_creation_and_defaults(self):
+        """Verify fields, default values, and successful save."""
+        log = SMSLog.objects.create(
+            recipient="+639171234567",
+            message="Test SMS message content",
+        )
+        self.assertEqual(log.recipient, "+639171234567")
+        self.assertEqual(log.message, "Test SMS message content")
+        self.assertEqual(log.status, "SENT")
+        self.assertEqual(log.gateway_message_id, "")
+        self.assertEqual(log.error_message, "")
+        self.assertIsNotNone(log.created_at)
+
+    def test_sms_log_str_representation(self):
+        """Verify __str__ format includes recipient, status, and formatted date."""
+        log = SMSLog.objects.create(
+            recipient="09171234567",
+            message="Hello World",
+            status="SENT",
+        )
+        str_rep = str(log)
+        self.assertIn("09171234567", str_rep)
+        self.assertIn("SENT", str_rep)
+
+    def test_sms_log_ordering(self):
+        """Verify records are ordered by -created_at descending by default."""
+        import time
+        log1 = SMSLog.objects.create(recipient="09171111111", message="First")
+        time.sleep(0.01)
+        log2 = SMSLog.objects.create(recipient="09172222222", message="Second")
+        logs = list(SMSLog.objects.all())
+        self.assertEqual(logs[0].pk, log2.pk)
+        self.assertEqual(logs[1].pk, log1.pk)
+
+    def test_sms_log_admin_registered(self):
+        """Verify SMSLog is registered in admin.site with customized ModelAdmin."""
+        self.assertIn(SMSLog, admin.site._registry)
+        model_admin = admin.site._registry[SMSLog]
+        self.assertEqual(
+            model_admin.list_display,
+            ("recipient", "status", "gateway_message_id", "created_at")
+        )
+        self.assertEqual(model_admin.list_filter, ("status", "created_at"))
+        self.assertEqual(
+            model_admin.search_fields,
+            ("recipient", "message", "gateway_message_id")
+        )
+
 
 
 
