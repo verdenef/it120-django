@@ -299,8 +299,10 @@ class SMSComposeViewTests(TestCase):
         self.assertIsInstance(form, SMSComposeForm)
         self.assertFalse(form.is_bound)
 
-    def test_post_valid_data_redirects_to_home_prg_pattern(self):
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_redirects_to_home_prg_pattern(self, mock_send_sms):
         """Verify valid POST redirects to home (PRG pattern) with 302."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch_test123')
         payload = {
             'phone_number': '09171234567',
             'message': 'Test valid SMS message',
@@ -308,9 +310,12 @@ class SMSComposeViewTests(TestCase):
         response = self.client.post(reverse('home'), data=payload)
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('home'))
+        mock_send_sms.assert_called_once_with('09171234567', 'Test valid SMS message')
 
-    def test_post_valid_data_follow_redirect_displays_success_flash_message(self):
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_follow_redirect_displays_success_flash_message(self, mock_send_sms):
         """Verify following valid POST redirect provides 200 and success flash message."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch_test123')
         payload = {
             'phone_number': '+639171234567',
             'message': 'Hello from automated test',
@@ -319,15 +324,19 @@ class SMSComposeViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         messages_list = list(response.context['messages'])
         self.assertEqual(len(messages_list), 1)
+        expected_msg = 'SMS dispatched successfully to +639171234567 (ID: batch_test123)!'
         self.assertEqual(
             str(messages_list[0]),
-            'Message queued for dispatch to +639171234567.'
+            expected_msg
         )
         self.assertEqual(messages_list[0].tags, 'success')
-        self.assertContains(response, 'Message queued for dispatch to +639171234567.')
+        self.assertContains(response, expected_msg)
+        mock_send_sms.assert_called_once_with('+639171234567', 'Hello from automated test')
 
-    def test_post_valid_data_sanitized_number_in_success_message(self):
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_sanitized_number_in_success_message(self, mock_send_sms):
         """Verify sanitized phone number is formatted and used in the success flash message."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch_test123')
         payload = {
             'phone_number': '+63 917-123-4567',
             'message': 'Formatted number test',
@@ -335,10 +344,177 @@ class SMSComposeViewTests(TestCase):
         response = self.client.post(reverse('home'), data=payload, follow=True)
         self.assertEqual(response.status_code, 200)
         messages_list = list(response.context['messages'])
+        expected_msg = 'SMS dispatched successfully to +639171234567 (ID: batch_test123)!'
         self.assertEqual(
             str(messages_list[0]),
-            'Message queued for dispatch to +639171234567.'
+            expected_msg
         )
+        self.assertContains(response, expected_msg)
+        mock_send_sms.assert_called_once_with('+639171234567', 'Formatted number test')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_success_without_batch_id(self, mock_send_sms):
+        """Verify valid POST with successful dispatch lacking batch ID displays success message without ID info."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id=None)
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Message without batch ID',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_msg = 'SMS dispatched successfully to 09171234567!'
+        self.assertEqual(str(messages_list[0]), expected_msg)
+        self.assertEqual(messages_list[0].tags, 'success')
+        self.assertContains(response, expected_msg)
+        self.assertNotContains(response, '(ID:')
+        mock_send_sms.assert_called_once_with('09171234567', 'Message without batch ID')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_gateway_failure_displays_error_flash_message(self, mock_send_sms):
+        """Verify valid POST with gateway failure displays messages.error with failure detail and redirects."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            error_message="Authentication failed: Invalid Textbee API key.",
+            status_code=401,
+        )
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Valid message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.redirect_chain), 1)
+        self.assertEqual(response.redirect_chain[0][1], 302)
+
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_error = "Failed to send SMS: Authentication failed: Invalid Textbee API key."
+        self.assertEqual(str(messages_list[0]), expected_error)
+        self.assertEqual(messages_list[0].tags, 'error')
+        self.assertContains(response, expected_error)
+        self.assertContains(response, 'alert-danger')
+        mock_send_sms.assert_called_once_with('09171234567', 'Valid message')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_gateway_timeout_displays_error_without_500(self, mock_send_sms):
+        """Verify valid POST with gateway timeout displays friendly timeout error and does not raise 500 error."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            error_message="The request to Textbee gateway timed out. Please try again.",
+            status_code=None,
+        )
+        payload = {
+            'phone_number': '+639171234567',
+            'message': 'Timeout test message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(response.status_code, 500)
+
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_error = "Failed to send SMS: The request to Textbee gateway timed out. Please try again."
+        self.assertEqual(str(messages_list[0]), expected_error)
+        self.assertEqual(messages_list[0].tags, 'error')
+        self.assertContains(response, expected_error)
+        self.assertContains(response, 'alert-danger')
+        mock_send_sms.assert_called_once_with('+639171234567', 'Timeout test message')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_gateway_connection_error_displays_friendly_error_and_redirects(self, mock_send_sms):
+        """Verify valid POST with gateway connection error displays friendly connectivity error and redirects."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            error_message="Unable to reach Textbee gateway. Please check internet connectivity.",
+            status_code=None,
+        )
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Connection error test message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.redirect_chain), 1)
+        self.assertEqual(response.redirect_chain[0][1], 302)
+
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_error = "Failed to send SMS: Unable to reach Textbee gateway. Please check internet connectivity."
+        self.assertEqual(str(messages_list[0]), expected_error)
+        self.assertEqual(messages_list[0].tags, 'error')
+        self.assertContains(response, expected_error)
+        mock_send_sms.assert_called_once_with('09171234567', 'Connection error test message')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_gateway_rate_limited_displays_error(self, mock_send_sms):
+        """Verify valid POST with gateway 429 rate limit displays appropriate error message."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            error_message="Rate limit exceeded or insufficient credits.",
+            status_code=429,
+        )
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Rate limit test message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_error = "Failed to send SMS: Rate limit exceeded or insufficient credits."
+        self.assertEqual(str(messages_list[0]), expected_error)
+        self.assertContains(response, expected_error)
+        mock_send_sms.assert_called_once_with('09171234567', 'Rate limit test message')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_data_gateway_device_offline_displays_error(self, mock_send_sms):
+        """Verify valid POST with gateway 404 device offline displays appropriate error message."""
+        mock_send_sms.return_value = TextbeeResult(
+            success=False,
+            error_message="Device not registered or offline.",
+            status_code=404,
+        )
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Device offline test message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        messages_list = list(response.context['messages'])
+        self.assertEqual(len(messages_list), 1)
+        expected_error = "Failed to send SMS: Device not registered or offline."
+        self.assertEqual(str(messages_list[0]), expected_error)
+        self.assertContains(response, expected_error)
+        mock_send_sms.assert_called_once_with('09171234567', 'Device offline test message')
+
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_form_rerenders_properly_on_get_after_redirect(self, mock_send_sms):
+        """Verify form re-renders cleanly as an unbound empty form on GET after PRG redirect."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch-clean-state')
+        payload = {
+            'phone_number': '09171234567',
+            'message': 'Clean state verification message',
+        }
+        response = self.client.post(reverse('home'), data=payload, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.redirect_chain), 1)
+        self.assertEqual(response.redirect_chain[0][0], reverse('home'))
+        self.assertEqual(response.redirect_chain[0][1], 302)
+
+        # Unbound form in context
+        self.assertIn('form', response.context)
+        form = response.context['form']
+        self.assertIsInstance(form, SMSComposeForm)
+        self.assertFalse(form.is_bound)
+        self.assertFalse(form.errors)
+
+        # Subsequent GET request has no messages (messages consumed)
+        get_response = self.client.get(reverse('home'))
+        self.assertEqual(get_response.status_code, 200)
+        self.assertEqual(len(list(get_response.context['messages'])), 0)
+        self.assertFalse(get_response.context['form'].is_bound)
 
     def test_post_invalid_data_blank_fields_rerenders_form_with_errors(self):
         """Verify invalid POST with blank fields re-renders 200 with bound form and errors."""
@@ -397,8 +573,10 @@ class SMSComposeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    def test_csrf_enforcement_accepts_post_with_valid_token(self):
+    @patch('sms_app.views.send_sms')
+    def test_csrf_enforcement_accepts_post_with_valid_token(self, mock_send_sms):
         """Verify CSRF middleware allows POST with matching CSRF cookie and form token."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch_csrf_token')
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_secret = _get_new_csrf_string()
         csrf_client.cookies[settings.CSRF_COOKIE_NAME] = csrf_secret
@@ -414,9 +592,12 @@ class SMSComposeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('home'))
+        mock_send_sms.assert_called_once_with('09171234567', 'CSRF verified test message')
 
-    def test_csrf_enforcement_accepts_post_with_valid_token_in_header(self):
+    @patch('sms_app.views.send_sms')
+    def test_csrf_enforcement_accepts_post_with_valid_token_in_header(self, mock_send_sms):
         """Verify CSRF middleware allows POST with matching CSRF cookie and X-CSRFToken header."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch_csrf_hdr')
         csrf_client = Client(enforce_csrf_checks=True)
         csrf_secret = _get_new_csrf_string()
         csrf_client.cookies[settings.CSRF_COOKIE_NAME] = csrf_secret
@@ -432,6 +613,7 @@ class SMSComposeViewTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('home'))
+        mock_send_sms.assert_called_once_with('09171234567', 'CSRF header test message')
 
 
 class SMSComposeTemplateUITests(TestCase):
@@ -557,8 +739,10 @@ class SMSComposeTemplateUITests(TestCase):
         self.assertIn('160', content)
         self.assertIn('140', content)
 
-    def test_post_valid_redirect_resets_form_to_clean_state(self):
+    @patch('sms_app.views.send_sms')
+    def test_post_valid_redirect_resets_form_to_clean_state(self, mock_send_sms):
         """Verify that after PRG redirect upon valid submission, the rendered form is clean and empty."""
+        mock_send_sms.return_value = TextbeeResult(success=True, message_id='batch-clean-test')
         payload = {
             'phone_number': '09171234567',
             'message': 'Hello from valid submission test',
@@ -568,10 +752,11 @@ class SMSComposeTemplateUITests(TestCase):
 
         content = response.content.decode('utf-8')
         # Success message displayed
-        self.assertIn('Message queued for dispatch to 09171234567.', content)
+        self.assertIn('SMS dispatched successfully to 09171234567 (ID: batch-clean-test)!', content)
         # Form fields are clean/empty
         self.assertIn('value=""', content)
         self.assertIn('>0 / 160<', content)
+        mock_send_sms.assert_called_once_with('09171234567', 'Hello from valid submission test')
 
     def test_template_accessibility_attributes(self):
         """Verify WCAG 2.1 AA accessibility features: label associations, ARIA live regions, and semantic roles."""
