@@ -31,3 +31,10 @@ Thumbs.db
 
 # Superpowers scratch and SDD artifacts
 .superpowers/
+
+# genOS framework scaffolding (track brain and AGENTS.md only)
+genOS/guides/
+genOS/integrations/
+genOS/profiles/
+genOS/templates/
+genOS/README.md
