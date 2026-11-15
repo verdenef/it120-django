@@ -28,3 +28,6 @@ ENV/
 .DS_Store
 Thumbs.db
 *.log
+
+# Superpowers scratch and SDD artifacts
+.superpowers/
