@@ -29,12 +29,11 @@ ENV/
 Thumbs.db
 *.log
 
-# Superpowers scratch and SDD artifacts
+# Development scratch, AI agents, and internal docs
 .superpowers/
-
-# genOS framework scaffolding (track brain and AGENTS.md only)
-genOS/guides/
-genOS/integrations/
-genOS/profiles/
-genOS/templates/
-genOS/README.md
+.agents/
+.cursor/
+genOS/
+docs/
+CLAUDE.md
+*.docx
