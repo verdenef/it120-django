@@ -3,7 +3,7 @@
 | Metadata | Details |
 | :--- | :--- |
 | **Course** | IT 120 – Integrative Programming and Technologies |
-| **Project** | Django SMS Gateway Application |
+| **Project** | Django SMS Sender |
 | **Purpose** | Video Recording Walkthrough |
 | **Target Runtime** | ~4 to 5 minutes |
 | **Format** | Solo presentation |
@@ -39,7 +39,7 @@ Show your code editor with the project open, or show your webcam.
 #### [SAY]
 > "Hello sir. My name is **[Your Name]** from **IT 120**, section **[Your Section]**.
 > 
-> This is my final laboratory project: a Django web application that sends SMS messages to mobile phones.
+> This is my final laboratory project: **Django SMS Sender**, a web application that sends SMS messages to mobile phones.
 > 
 > I worked on this project individually, handling the Django backend, database, frontend, SMS gateway integration, and testing."
 

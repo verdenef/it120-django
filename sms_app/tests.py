@@ -54,7 +54,7 @@ class ViewSmokeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'base.html')
         self.assertTemplateUsed(response, 'sms_app/home.html')
-        self.assertContains(response, 'Textbee SMS Sender')
+        self.assertContains(response, 'Django SMS Sender')
 
     def test_secret_key_not_leaked_in_response(self):
         """Verify sensitive credentials are never leaked in rendered HTML."""
