@@ -5,7 +5,7 @@
 | **Course** | IT 120 &ndash; Integrative Programming and Technologies |
 | **Academic Term** | 1st Semester, SY 2026&ndash;2027 |
 | **Assignment Title** | Build a Django Application for Sending SMS |
-| **Project Implementation** | Django SMS Gateway Application (Textbee REST API Gateway) |
+| **Project Implementation** | Django SMS Sender (Textbee REST API Gateway) |
 | **Official Recipient** | `joshuatubo4@gmail.com` |
 | **Mandatory Subject Line** | `Assignment_IT 120-1stSemSY26-27` |
 | **Target Rubric Score** | **100 / 100 Points** (Section VII Parts A, B, C, D) |
@@ -54,7 +54,7 @@ We are formally submitting our laboratory group project for IT 120 (Integrative 
 
 1. PROJECT OVERVIEW
 ----------------------------------------------------------------------
-Project Name: Django SMS Gateway Web Application
+Project Name: Django SMS Sender
 Provider Gateway: Textbee Android REST Gateway Service (DEC-001)
 Architecture: Full-Stack Django 5 with Bootstrap 5, SQLite Persistence & PRG Pattern
 Test Coverage: 81 Automated Tests Passing (0 Failures, 0 Errors in ~0.12s)

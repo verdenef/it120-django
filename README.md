@@ -1,4 +1,4 @@
-# Django SMS Gateway Application
+# Django SMS Sender
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![Django 5.x](https://img.shields.io/badge/django-5.x-green.svg)](https://www.djangoproject.com/)
@@ -6,7 +6,7 @@
 [![Gateway](https://img.shields.io/badge/gateway-Textbee%20REST%20API-orange.svg)](https://textbee.dev)
 [![License: Academic](https://img.shields.io/badge/license-Academic%20Use-lightgrey.svg)](#)
 
-A secure, full-stack **Django SMS Gateway Web Application** developed for **IT 120 (Integrative Programming and Technologies)**. This application enables users to compose, validate, and dispatch real-time Short Message Service (SMS) text messages to mobile phone recipients via the **Textbee REST API Gateway**. The project incorporates multi-tier input validation, resilient error handling, persistent database auditing, an interactive dashboard with live character counting, and a comprehensive 81-test automated test suite.
+A secure, full-stack **Django SMS Sender** web application developed for **IT 120 (Integrative Programming and Technologies)**. This application enables users to compose, validate, and dispatch real-time Short Message Service (SMS) text messages to mobile phone recipients via the **Textbee REST API Gateway**. The project incorporates multi-tier input validation, resilient error handling, persistent database auditing, an interactive dashboard with live character counting, and a comprehensive 81-test automated test suite.
 
 ---
 
@@ -29,7 +29,7 @@ A secure, full-stack **Django SMS Gateway Web Application** developed for **IT 1
 
 ## Project Overview
 
-The **Django SMS Gateway Application** integrates a high-performance web interface built with Django 5 and Bootstrap 5 with an external Android-based SMS gateway powered by Textbee. Rather than depending on deprecated or restricted trial SMS services, the system interfaces with the Textbee REST API endpoint, communicating with a registered physical Android gateway device to deliver real SMS messages across Philippine and international cellular networks.
+The **Django SMS Sender** integrates a clean web interface built with Django 5 and Bootstrap 5 with an external Android-based SMS gateway powered by Textbee. Rather than depending on deprecated or restricted trial SMS services, the system interfaces with the Textbee REST API endpoint, communicating with a registered physical Android gateway device to deliver real SMS messages across Philippine and international cellular networks.
 
 ### High-Level System Highlights
 
