@@ -13,8 +13,8 @@ A secure, full-stack **Django SMS Sender** web application developed for **IT 12
 ## Table of Contents
 
 - [Project Overview](#project-overview)
-- [Team Roles & Contribution Allocation (DEC-002)](#team-roles--contribution-allocation-dec-002)
-- [Key & Creative Features](#key--creative-features)
+- [Individual Role Distribution](#individual-role-distribution)
+- [Key Features](#key-features)
 - [Technology Stack & Dependencies](#technology-stack--dependencies)
 - [Architecture & Workflow](#architecture--workflow)
 - [Installation & Setup](#installation--setup)
@@ -23,7 +23,7 @@ A secure, full-stack **Django SMS Sender** web application developed for **IT 12
 - [Automated Testing & Verification](#automated-testing--verification)
 - [Security & Privacy Controls](#security--privacy-controls)
 - [Troubleshooting & Known Limitations](#troubleshooting--known-limitations)
-- [License & Academic Integrity](#license--academic-integrity)
+- [Academic Information](#academic-information)
 
 ---
 
@@ -37,23 +37,23 @@ The **Django SMS Sender** integrates a clean web interface built with Django 5 a
 - **Strict Data Validation:** Comprehensive client- and server-side validation rejecting invalid phone numbers, empty bodies, and excessive message lengths.
 - **Resilient External Service Layer:** Fully isolated HTTP service client with timeout protections, response code handling, and granular error extraction.
 - **Audit Logging & History:** Persistent SQLite storage (`SMSLog`) tracking every outbound dispatch attempt with delivery status, gateway batch IDs, and diagnostic error logs.
-- **Enterprise-Grade Test Coverage:** 81 automated tests verifying configuration security, form validation, view lifecycles, service failures, database models, and UI rendering.
+- **Automated Test Coverage:** 81 automated tests verifying configuration security, form validation, view lifecycles, service failures, database models, and UI rendering.
 
 ---
 
-## Team Roles & Contribution Allocation (DEC-002)
+## Individual Role Distribution
 
-To fulfill the requirements of the IT 120 Group Assignment while accommodating a **solo developer delivery model** (recorded in project architectural decision `DEC-002`), development responsibilities are cleanly structured across three specialized functional roles:
+To fulfill the requirements of the IT 120 Assignment under an **individual developer model**, development responsibilities were structured across three core functional areas:
 
-| Role | Functional Area | Key Deliverables & Responsibilities |
+| Area | Focus | Key Deliverables & Responsibilities |
 | :--- | :--- | :--- |
-| **Member 1** | **Backend Architecture & Data Modeling** | • Project scaffolding (`sms_sender`, `sms_app`) and configuration management.<br>• URL routing design (`sms_sender/urls.py`, `sms_app/urls.py`).<br>• Relational database modeling (`SMSLog` in `sms_app/models.py`) and schema migrations.<br>• Core controller view orchestration (`sms_app/views.py`) implementing the Post/Redirect/Get (PRG) pattern.<br>• Django Admin customization (`sms_app/admin.py`) for audit log inspection. |
-| **Member 2** | **Frontend Engineering & UX Design** | • Mobile-first UI templates (`templates/base.html`, `sms_app/templates/sms_app/home.html`).<br>• Bootstrap 5 integration, custom responsive styling, and accessible layout.<br>• Django Form architecture (`SMSComposeForm` in `sms_app/forms.py`) with client/server validation.<br>• Interactive real-time character counter (160-char SMS boundary) with visual badge indicators.<br>• SMS History dashboard table with status badges and error diagnostic popovers/tooltips. |
-| **Member 3** | **SMS Gateway Integration, Security & Testing** | • Textbee REST API service client (`sms_app/services/textbee.py`) with timeout & error recovery.<br>• Security hardening: `.env` credential isolation, `.gitignore` rules, and CSRF token protection.<br>• Test suite architecture: Authoring 81 automated unit and integration tests (`sms_app/tests.py`).<br>• Comprehensive project documentation and setup guides (`README.md`). |
+| **Backend & Architecture** | **Backend Architecture & Data Modeling** | • Project scaffolding (`sms_sender`, `sms_app`) and configuration management.<br>• URL routing design (`sms_sender/urls.py`, `sms_app/urls.py`).<br>• Relational database modeling (`SMSLog` in `sms_app/models.py`) and schema migrations.<br>• Core controller view orchestration (`sms_app/views.py`) implementing the Post/Redirect/Get (PRG) pattern.<br>• Django Admin customization (`sms_app/admin.py`) for audit log inspection. |
+| **Frontend & UI** | **Frontend Engineering & UX Design** | • Mobile-first UI templates (`templates/base.html`, `sms_app/templates/sms_app/home.html`).<br>• Bootstrap 5 integration, custom responsive styling, and accessible layout.<br>• Django Form architecture (`SMSComposeForm` in `sms_app/forms.py`) with client/server validation.<br>• Interactive real-time character counter (160-char SMS boundary) with visual badge indicators.<br>• SMS History dashboard table with status badges and error diagnostic tooltips. |
+| **Integration & Testing** | **SMS Gateway Integration, Security & Testing** | • Textbee REST API service client (`sms_app/services/textbee.py`) with timeout & error recovery.<br>• Security hardening: `.env` credential isolation, `.gitignore` rules, and CSRF token protection.<br>• Test suite architecture: Authoring 81 automated unit and integration tests (`sms_app/tests.py`).<br>• Comprehensive project documentation and setup guides (`README.md`). |
 
 ---
 
-## Key & Creative Features
+## Key Features
 
 ### 1. Robust Multi-Format Phone Number Validation
 - Enforces strict regex validation supporting standard Philippine mobile formats (e.g., `09171234567` or `+639171234567`) as well as international E.164 formats (`+[country code][number]`).
@@ -74,8 +74,8 @@ To fulfill the requirements of the IT 120 Group Assignment while accommodating a
 
 ### 5. Persistent Audit Trail & History Dashboard (`SMSLog`)
 - Every dispatch attempt—whether successful or failed—is automatically recorded in SQLite with recipient phone number, message text, timestamp, delivery status (`SENT` or `FAILED`), Textbee batch ID, and detailed error messages.
-- An embedded **SMS History & Audit Log** table displays the 20 most recent messages directly beneath the composer.
-- Failed messages display interactive Bootstrap popovers/tooltips detailing the root cause (e.g., missing API credentials, invalid phone format, or gateway timeouts) for immediate troubleshooting.
+- An embedded **Message History & Audit Log** table displays recent messages directly beneath the composer.
+- Failed messages display diagnostic error descriptions detailing the root cause (e.g., missing API credentials, invalid phone format, or gateway timeouts) for immediate troubleshooting.
 
 ### 6. Django Admin Integration
 - Registered `SMSLogAdmin` interface allowing administrators to search by recipient, filter by dispatch status or date, and review complete message payloads in the back-office portal.
@@ -99,37 +99,27 @@ To fulfill the requirements of the IT 120 Group Assignment while accommodating a
 
 ## Architecture & Workflow
 
-The following flowchart illustrates the end-to-end dispatch and audit logging workflow:
-
-```
-[ User Browser ]
-       |
-       | 1. Enters Phone & Message (Live Character Counter)
-       v
-[ Django View: home() ]
-       |
-       | 2. Validates CSRF Token & Form Constraints (SMSComposeForm)
-       +---> [ Form Invalid ] ---> Re-renders form with inline error alerts
-       |
-       | 3. Form Valid: Calls send_sms(recipient, message)
-       v
-[ Textbee Service (textbee.py) ]
-       |
-       | 4. Authenticated POST with x-api-key & device_id (10s timeout)
-       v
-[ Textbee REST API Gateway ] ---> [ Registered Android Phone ] ---> [ Mobile Carrier ] ---> [ Recipient Phone ]
-       |
-       | 5. Returns JSON response (Success / Failure / Batch ID)
-       v
-[ Django View: home() ]
-       |
-       | 6. Writes record to SQLite (SMSLog.objects.create)
-       v
-[ Database: SMSLog ] (Status: SENT or FAILED, Gateway ID, Error details, Timestamp)
-       |
-       | 7. Sets Django Flash Message & executes PRG Redirect
-       v
-[ User Browser ] <--- Displays confirmation alert & updated SMS History table
+```mermaid
+flowchart TD
+    User([User Browser]) -->|1. Enters Phone & Message| UI[SMS Compose Form]
+    UI -->|2. Submits Form with CSRF Token| View[Django View: home]
+    
+    View -->|Form Validation Failed| Invalid[Re-render Form with Inline Errors]
+    Invalid --> User
+    
+    View -->|Form Valid| Service[Textbee Service Client]
+    Service -->|3. Authenticated POST with API Key| Gateway[Textbee REST API Gateway]
+    
+    Gateway -->|4. Relays Message| Phone[Android Gateway Phone]
+    Phone -->|5. Cellular SMS Transmission| Carrier[Mobile Network Carrier]
+    Carrier -->|6. Receives SMS| Recipient([Recipient Handset])
+    
+    Gateway -->|7. JSON Response| Service
+    Service -->|8. Parsed TextbeeResult| View
+    
+    View -->|9. Persist Dispatch Record| DB[(SQLite Database: SMSLog)]
+    View -->|10. Flash Message & PRG Redirect| Redirect[Redirect: home]
+    Redirect -->|11. Render Updated History| User
 ```
 
 ---
@@ -338,9 +328,9 @@ The application enforces defense-in-depth security principles aligning with both
 
 ---
 
-## License & Academic Integrity
+## Academic Information
 
 This project is submitted in fulfillment of the coursework requirements for **IT 120 (Integrative Programming and Technologies)**. 
 
 - **Academic Integrity:** Developed solely for educational and demonstrative purposes. All code, documentation, and automated tests reflect original work adhering to academic standards.
-- **Author / Student Developer:** Solo Developer under `DEC-002` Allocation (Covering Member 1, Member 2, and Member 3 responsibilities).
+- **Developer:** Solo Project Development.
