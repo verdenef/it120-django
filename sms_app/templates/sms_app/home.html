@@ -69,7 +69,7 @@
 
                     <!-- Action Buttons -->
                     <div class="d-flex justify-content-between align-items-center pt-3 border-top">
-                        <button type="reset" class="btn btn-outline-secondary" id="btn-reset">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-reset">
                             <i class="bi bi-arrow-counterclockwise me-1"></i> Clear
                         </button>
                         <button type="submit" class="btn btn-primary px-4 fw-semibold" id="btn-submit">
@@ -227,17 +227,24 @@
         messageTextarea.addEventListener('input', updateCharacterCounter);
         messageTextarea.addEventListener('keyup', updateCharacterCounter);
 
-        // Reset character counter and clear all form inputs explicitly when form is reset
-        if (form) {
-            form.addEventListener('reset', function () {
-                const phoneInput = form.querySelector('input[name="phone_number"]');
+        // Clear button handler: completely clear inputs, validation feedback, and reset counter
+        const clearBtn = document.getElementById('btn-reset');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const phoneInput = document.querySelector('input[name="phone_number"]');
                 if (phoneInput) {
                     phoneInput.value = '';
+                    phoneInput.classList.remove('is-invalid');
                 }
                 if (messageTextarea) {
                     messageTextarea.value = '';
+                    messageTextarea.classList.remove('is-invalid');
                 }
-                setTimeout(updateCharacterCounter, 0);
+                const invalidFeedbacks = document.querySelectorAll('.invalid-feedback');
+                invalidFeedbacks.forEach(el => el.remove());
+
+                updateCharacterCounter();
             });
         }
 
