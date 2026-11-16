@@ -227,9 +227,16 @@
         messageTextarea.addEventListener('input', updateCharacterCounter);
         messageTextarea.addEventListener('keyup', updateCharacterCounter);
 
-        // Reset character counter when form is reset
+        // Reset character counter and clear all form inputs explicitly when form is reset
         if (form) {
             form.addEventListener('reset', function () {
+                const phoneInput = form.querySelector('input[name="phone_number"]');
+                if (phoneInput) {
+                    phoneInput.value = '';
+                }
+                if (messageTextarea) {
+                    messageTextarea.value = '';
+                }
                 setTimeout(updateCharacterCounter, 0);
             });
         }
