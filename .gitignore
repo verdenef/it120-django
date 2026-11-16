@@ -29,11 +29,13 @@ ENV/
 Thumbs.db
 *.log
 
-# Development scratch, AI agents, and internal docs
+# Development scratch and AI agents
 .superpowers/
 .agents/
 .cursor/
 genOS/
 docs/
+DEMONSTRATION_SCRIPT.md
+SUBMISSION_EMAIL.md
 CLAUDE.md
 *.docx
